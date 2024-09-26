@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import chainlit as cl
-from movie_functions import get_showtimes, get_now_playing_movies, get_reviews
+from movie_functions import get_showtimes, get_now_playing_movies, get_reviews, get_random_movie, buy_ticket
 import re
 import json
 
@@ -31,19 +31,26 @@ function call. Call functions using Python syntax in plain text, no code blocks.
 You have access to the following functions:
    - **get_now_playing_movies():** For currently showing films.
    - **get_showtimes():** For movie times at specific locations.
-   - **buy_ticket():** To assist with ticket purchases.
    - **get_reviews():** For recent reviews or audience reactions.
+   - **get_random_movie():** To pick a random movie.
+   - **buy_ticket():** To assist with ticket purchases.
+   - **confirm_ticket_purchase():** To confirm with user before ticket purchases.
 
 Generate function calls in the following format:
 { "function": "get_showtimes", "title": "movieTitle", "location": "city, state"}
 
 { "function": "get_now_playing_movies"}
 
-{ "function": "get_reviews", "movie_id": "movieId" }
+{ "function": "get_random_movie": , "movies": "movieList"}
 
-{ "function": "buy_ticket", "theater": "theater", "movie_id": "movieId", "showtime": "showtime" }
+{ "function": "get_reviews", "movie_id": "movieId"}
 
-**Interaction:** Be clear and concise. Ask for clarification if needed. Keep a friendly and helpful tone.
+{ "function": "buy_ticket", "theater": "theater", "movie_id": "movieId", "showtime": "showtime"}
+
+{ "function": "confirm_ticket_purchase", "theater": "theater", "movie_id": "movieId", "showtime": "showtime"}
+
+**Interaction:** Be clear and concise. Ask for clarification if needed. Keep a friendly and helpful tone. 
+Always repeat the ticket details and display an instruction to confirm the ticket with the user when buying tickets
 """
 
 @observe
@@ -74,7 +81,7 @@ async def on_message(message: cl.Message):
 
     response_message = await generate_response(client, message_history, gen_kwargs)
 
-    if response_message.content.startswith("{ \"function\": "):
+    while response_message.content.find("{ \"function\": ") != -1:
         try:
             json_message = json.loads(response_message.content)
             function_name = json_message.get("function")
@@ -102,6 +109,7 @@ async def on_message(message: cl.Message):
         except json.JSONDecodeError:
             print("Error: Unable to parse the message as JSON")
             json_message = None
+            break
 
     message_history.append({"role": "assistant", "content": response_message.content})
     cl.user_session.set("message_history", message_history)

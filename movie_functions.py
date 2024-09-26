@@ -2,6 +2,14 @@ import os
 import requests
 from serpapi import GoogleSearch
 import os
+import random
+
+def get_random_movie(movie_list):
+    if not movie_list:
+        return None  # Return None if the list is empty
+    choice = random.choice(movie_list)
+    print("Random movie selection:", choice)
+    return choice
 
 def get_now_playing_movies():
     url = "https://api.themoviedb.org/3/movie/now_playing?language=en-US&page=1"
