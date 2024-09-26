@@ -1,5 +1,8 @@
 from dotenv import load_dotenv
 import chainlit as cl
+from movie_functions import get_showtimes, get_now_playing_movies, get_reviews
+import re
+import json
 
 load_dotenv()
 
@@ -20,7 +23,27 @@ gen_kwargs = {
 }
 
 SYSTEM_PROMPT = """\
-You are a pirate.
+You are a helpful movie chatbot that helps people explore movies that are out in \
+theaters. If a user asks for recent information, output a function call and \
+the system add to the context. If you need to call a function, only output the \
+function call. Call functions using Python syntax in plain text, no code blocks.
+
+You have access to the following functions:
+   - **get_now_playing_movies():** For currently showing films.
+   - **get_showtimes():** For movie times at specific locations.
+   - **buy_ticket():** To assist with ticket purchases.
+   - **get_reviews():** For recent reviews or audience reactions.
+
+Generate function calls in the following format:
+{ "function": "get_showtimes", "title": "movieTitle", "location": "city, state"}
+
+{ "function": "get_now_playing_movies"}
+
+{ "function": "get_reviews", "movie_id": "movieId" }
+
+{ "function": "buy_ticket", "theater": "theater", "movie_id": "movieId", "showtime": "showtime" }
+
+**Interaction:** Be clear and concise. Ask for clarification if needed. Keep a friendly and helpful tone.
 """
 
 @observe
@@ -48,8 +71,37 @@ async def generate_response(client, message_history, gen_kwargs):
 async def on_message(message: cl.Message):
     message_history = cl.user_session.get("message_history", [])
     message_history.append({"role": "user", "content": message.content})
-    
+
     response_message = await generate_response(client, message_history, gen_kwargs)
+
+    if response_message.content.startswith("{ \"function\": "):
+        try:
+            json_message = json.loads(response_message.content)
+            function_name = json_message.get("function")
+
+            if function_name == "get_showtimes":
+                title = json_message.get("title")
+                location = json_message.get("location")
+                result = get_showtimes(title, location)
+            elif function_name == "get_now_playing_movies":
+                result = get_now_playing_movies()
+            elif function_name == "get_reviews":
+                movie_id = json_message.get("movie_id")
+                result = get_reviews(movie_id)
+            elif function_name == "buy_tickets":
+                movie_id = json_message.get("movie_id")
+                theater = json_message.get("theater")
+                showtime = json_message.get("showtime")
+                result = buy_ticket(theater, movie_id, showtime)
+            else:
+                result = "Unknown function call"
+
+            message_history.append({"role": "system", "content": result})
+
+            response_message = await generate_response(client, message_history, gen_kwargs)
+        except json.JSONDecodeError:
+            print("Error: Unable to parse the message as JSON")
+            json_message = None
 
     message_history.append({"role": "assistant", "content": response_message.content})
     cl.user_session.set("message_history", message_history)
