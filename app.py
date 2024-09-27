@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import chainlit as cl
-from movie_functions import get_showtimes, get_now_playing_movies, get_reviews, get_random_movie, buy_ticket
+from movie_functions import get_showtimes, get_now_playing_movies, get_reviews, get_random_movie, buy_ticket, confirm_ticket_purchase
 import re
 import json
 
@@ -41,7 +41,7 @@ Generate function calls in the following format:
 
 { "function": "get_now_playing_movies"}
 
-{ "function": "get_random_movie": , "movies": "movieList"}
+{ "function": "get_random_movie": , "movies": "movie_list"}
 
 { "function": "get_reviews", "movie_id": "movieId"}
 
@@ -81,7 +81,7 @@ async def on_message(message: cl.Message):
 
     response_message = await generate_response(client, message_history, gen_kwargs)
 
-    while response_message.content.find("{ \"function\": ") != -1:
+    while response_message.content.startswith("{ \"function\": "):
         try:
             json_message = json.loads(response_message.content)
             function_name = json_message.get("function")
@@ -92,6 +92,9 @@ async def on_message(message: cl.Message):
                 result = get_showtimes(title, location)
             elif function_name == "get_now_playing_movies":
                 result = get_now_playing_movies()
+            elif function_name == "get_random_movie":
+                movie_list = json_message.get("movies")
+                result = get_random_movie(movie_list)
             elif function_name == "get_reviews":
                 movie_id = json_message.get("movie_id")
                 result = get_reviews(movie_id)
@@ -100,8 +103,13 @@ async def on_message(message: cl.Message):
                 theater = json_message.get("theater")
                 showtime = json_message.get("showtime")
                 result = buy_ticket(theater, movie_id, showtime)
+            elif function_name == "confirm_ticket_purchase":
+                movie_id = json_message.get("movie_id")
+                theater = json_message.get("theater")
+                showtime = json_message.get("showtime")
+                result = confirm_ticket_purchase(theater, movie_id, showtime)
             else:
-                result = "Unknown function call"
+                result = "Unknown function call: " + function_name
 
             message_history.append({"role": "system", "content": result})
 
