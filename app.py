@@ -53,6 +53,22 @@ Generate function calls in the following format:
 Always repeat the ticket details and display an instruction to confirm the ticket with the user when buying tickets
 """
 
+REVIEW_PROMPT = """\
+Based on the conversation, determine if the topic is about a specific movie. Determine if the user is asking a question that would be aided by knowing what critics are saying about the movie. Determine if the reviews for that movie have already been provided in the conversation. If so, do not fetch reviews.
+
+Your only role is to evaluate the conversation, and decide whether to fetch reviews.
+
+Output the current movie, id, a boolean to fetch reviews in JSON format, and your
+rationale. Do not output as a code block.
+
+{
+    "movie": "title",
+    "id": 123,
+    "fetch_reviews": true
+    "rationale": "reasoning"
+}
+"""
+
 @observe
 @cl.on_chat_start
 def on_chat_start():    
@@ -79,6 +95,23 @@ async def on_message(message: cl.Message):
     message_history = cl.user_session.get("message_history", [])
     message_history.append({"role": "user", "content": message.content})
 
+    message_history.append({"role": "system", "content": REVIEW_PROMPT})
+    response_message = await generate_response(client, message_history, gen_kwargs)
+
+    try:
+        context_json = json.loads(response_message.content)
+
+        if context_json.get("fetch_reviews", False):
+            movie_id = context_json.get("id")
+            reviews = get_reviews(movie_id)
+            reviews = f"Reviews for {context_json.get('movie')} (ID: {movie_id}):\n\n{reviews}"
+            context_message = {"role": "system", "content": f"CONTEXT: {reviews}"}
+            message_history.append(context_message)
+    except json.JSONDecodeError:
+            print("Error: Unable to parse the message as JSON")
+            json_message = None
+
+    message_history.append({"role": "system", "content": SYSTEM_PROMPT})
     response_message = await generate_response(client, message_history, gen_kwargs)
 
     if response_message.content.startswith("{ \"function\": "):
