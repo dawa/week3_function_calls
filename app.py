@@ -81,7 +81,7 @@ async def on_message(message: cl.Message):
 
     response_message = await generate_response(client, message_history, gen_kwargs)
 
-    while response_message.content.startswith("{ \"function\": "):
+    if response_message.content.startswith("{ \"function\": "):
         try:
             json_message = json.loads(response_message.content)
             function_name = json_message.get("function")
@@ -117,7 +117,6 @@ async def on_message(message: cl.Message):
         except json.JSONDecodeError:
             print("Error: Unable to parse the message as JSON")
             json_message = None
-            break
 
     message_history.append({"role": "assistant", "content": response_message.content})
     cl.user_session.set("message_history", message_history)
