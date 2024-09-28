@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import chainlit as cl
 from movie_functions import get_showtimes, get_now_playing_movies, get_reviews, get_random_movie, buy_ticket, confirm_ticket_purchase
-import re
 import json
 
 load_dotenv()
@@ -108,13 +107,13 @@ async def on_message(message: cl.Message):
             context_message = {"role": "system", "content": f"CONTEXT: {reviews}"}
             message_history.append(context_message)
     except json.JSONDecodeError:
-            print("Error: Unable to parse the message as JSON")
+            print("Error: Unable to parse the review message as JSON " + response_message.content)
             json_message = None
 
     message_history.append({"role": "system", "content": SYSTEM_PROMPT})
     response_message = await generate_response(client, message_history, gen_kwargs)
 
-    if response_message.content.startswith("{ \"function\": "):
+    if response_message.content.find("{ \"function\": ") != -1:
         try:
             json_message = json.loads(response_message.content)
             function_name = json_message.get("function")
@@ -148,7 +147,7 @@ async def on_message(message: cl.Message):
 
             response_message = await generate_response(client, message_history, gen_kwargs)
         except json.JSONDecodeError:
-            print("Error: Unable to parse the message as JSON")
+            print("Error: Unable to parse the message as JSON " + response_message.content)
             json_message = None
 
     message_history.append({"role": "assistant", "content": response_message.content})
