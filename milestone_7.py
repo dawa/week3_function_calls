@@ -163,13 +163,15 @@ async def generate_response(client, message_history, gen_kwargs):
     function_call_data = None
     stream = await client.chat.completions.create(messages=message_history, stream=True, **gen_kwargs)
     async for part in stream:
-        token_content = part.choices[0].delta.content or ""
-        await response_message.stream_token(token_content)
+        # Accessing the content from delta and updating response_message
+        if part.choices[0].delta.content:
+            token_content = part.choices[0].delta.content
+            await response_message.stream_token(token_content)
 
-        # Check for a function call
-        if part.choices[0].delta.get("function_call"):
+        # Accessing the function call directly from delta (no need for .get())
+        if part.choices[0].delta.function_call:
             function_call_data = part.choices[0].delta.function_call
-    
+
     await response_message.update()
     
     return response_message, function_call_data
