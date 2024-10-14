@@ -161,7 +161,7 @@ async def generate_response(client, message_history, gen_kwargs):
 
     # Handle streamed response
     function_call_data = None
-    stream = await client.chat.completions.create(messages=message_history, stream=True, **gen_kwargs)
+    stream = await client.chat.completions.create(messages=message_history, stream=True, tools=self.tools, tool_choice="auto", **gen_kwargs)
     async for part in stream:
         # Accessing the content from delta and updating response_message
         if part.choices[0].delta.content:
